@@ -1,9 +1,15 @@
 {
   "name": "batch-tx",
   "version": "1.0.0",
+  "description": "Batch Transaction Sender",
   "main": "main.js",
+  "scripts": {
+    "start": "node main.js"
+  },
   "dependencies": {
     "ethers": "^6.15.0",
-    "readline-sync": "^1.4.10"
+    "chalk": "^4.1.2",
+    "inquirer": "^8.2.5",
+    "ora": "^5.4.1"
   }
 }
