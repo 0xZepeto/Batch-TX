@@ -1,28 +1,30 @@
-{
-  "networks": [
-    {
-      "name": "BASE MAINNET",
-      "rpcUrl": "https://mainnet.base.org",
-      "chainId": 8453,
-      "symbol": "ETH"
-    },
-    {
-      "name": "ETHEREUM MAINNET",
-      "rpcUrl": "https://ethereum-public.nodies.app",
-      "chainId": 1,
-      "symbol": "ETH"
-    },
-    {
-      "name": "BSC MAINNET",
-      "rpcUrl": "https://bsc-dataseed.binance.org/",
-      "chainId": 56,
-      "symbol": "BNB"
-    },
-    {
-      "name": "APECHAIN",
-      "rpcUrl": "https://apechain-mainnet.blastapi.io/43114/ext/bc/C/rpc",
-      "chainId": 43114,
-      "symbol": "APE"
-    }
-  ]
-}
+[
+  {
+    "name": "Ethereum",
+    "rpc": "https://ethereum-rpc.publicnode.com",
+    "chainId": 1,
+    "symbol": "ETH",
+    "explorer": "https://etherscan.io"
+  },
+  {
+    "name": "Binance Smart Chain",
+    "rpc": "https://bsc-dataseed.binance.org/",
+    "chainId": 56,
+    "symbol": "BNB",
+    "explorer": "https://bscscan.com"
+  },
+  {
+    "name": "ApeCoin",
+    "rpc": "https://apechain.rpc.com", 
+    "chainId": 1,
+    "symbol": "APE",
+    "explorer": "https://apescan.io"
+  },
+  {
+    "name": "Polygon",
+    "rpc": "https://polygon-rpc.com",
+    "chainId": 137,
+    "symbol": "MATIC",
+    "explorer": "https://polygonscan.com"
+  }
+]
