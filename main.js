@@ -1,319 +1,285 @@
 const ethers = require('ethers');
-const utils = require('./utils');
 const readline = require('readline-sync');
+const fs = require('fs');
+const {
+    getNetworks,
+    getProvider,
+    getWallet,
+    sendNativeTransaction,
+    sendTokenTransaction,
+    getTokenDecimals
+} = require('./utils');
 
 async function main() {
-    console.log('=== BATCH TRANSACTION TOOL ===');
-    const network = utils.selectNetwork();
-    
-    console.log('\nPilih opsi:');
-    console.log('1. KIRIM NATIVE TOKEN');
-    console.log('2. KIRIM ERC20/BEP20 TOKEN');
-    const choice = readline.question('Masukkan nomor opsi: ');
+    console.log('=== BATCH TRANSACTION SENDER ===\n');
 
-    if (choice === '1') {
-        await sendNative(network);
-    } else if (choice === '2') {
-        await sendToken(network);
+    // Load networks
+    const networks = getNetworks();
+    if (networks.length === 0) {
+        console.log('No networks found in rpc.json');
+        return;
+    }
+
+    // Network selection
+    console.log('Select Network:');
+    networks.forEach((net, i) => {
+        console.log(`${i + 1}. ${net.name} (${net.symbol})`);
+    });
+    const networkChoice = readline.questionInt('Enter network number: ') - 1;
+    const selectedNetwork = networks[networkChoice];
+    const provider = getProvider(selectedNetwork.rpcUrl);
+
+    // Load private keys
+    const privateKeys = fs.readFileSync('privatekey.txt', 'utf8')
+        .split('\n')
+        .filter(key => key.trim() !== '');
+    const wallets = privateKeys.map(pk => getWallet(pk, provider));
+
+    // Transaction type selection
+    console.log('\nSelect Transaction Type:');
+    console.log('1. Send Native Token');
+    console.log('2. Send ERC20/BEP20 Token');
+    const txType = readline.questionInt('Enter choice: ');
+
+    if (txType === 1) {
+        await handleNativeTransaction(selectedNetwork, wallets, provider);
+    } else if (txType === 2) {
+        await handleTokenTransaction(selectedNetwork, wallets, provider);
     } else {
-        console.log('Opsi tidak valid.');
+        console.log('Invalid choice');
     }
 }
 
-async function sendNative(network) {
-    const privateKeys = utils.readFile('privatekey.txt');
-    if (privateKeys.length === 0) {
-        console.log('Tidak ada private key di privatekey.txt');
-        return;
-    }
+async function handleNativeTransaction(network, wallets, provider) {
+    console.log(`\nSend ${network.symbol} (Native Token)`);
+    const totalAmount = readline.questionFloat('Enter total amount to send: ');
 
-    const amount = readline.question('Masukkan jumlah kirim (dalam satuan token): ');
-    
-    console.log('\nPilih mode pengiriman:');
-    console.log('1. Satu akun ke banyak alamat (singleaddress.txt)');
-    console.log('2. Banyak akun ke satu alamat');
-    console.log('3. Kirim semua saldo (split otomatis)');
-    const mode = readline.question('Masukkan nomor mode: ');
+    console.log('\nSend Mode:');
+    console.log('1. From 1 address to many addresses (address.txt)');
+    console.log('2. From many addresses (privatekey.txt) to 1 address');
+    const mode = readline.questionInt('Enter mode: ');
 
-    if (mode === '1') {
-        const addresses = utils.readFile('singleaddress.txt'); // DIUBAH DI SINI
-        if (addresses.length === 0) {
-            console.log('Tidak ada alamat di singleaddress.txt');
-            return;
-        }
-        
-        const wallet = utils.createWallet(privateKeys[0], network.rpc);
-        for (const addr of addresses) {
-            try {
-                console.log(`Mengirim ${amount} ke ${addr}...`);
-                const tx = await utils.sendNative(wallet, addr, amount);
-                await utils.sendWithRetry(wallet, tx);
-                console.log(`Berhasil mengirim ke ${addr}`);
-            } catch (error) {
-                console.error(`Gagal mengirim ke ${addr}:`, error.message);
-            }
-        }
-    } 
-    else if (mode === '2') {
-        console.log('\nPilih sumber address tujuan:');
-        console.log('1. Dari file received.txt');
-        console.log('2. Input manual');
-        const sourceChoice = readline.question('Masukkan nomor pilihan: ');
-        
-        let receiver;
-        if (sourceChoice === '1') {
-            receiver = utils.readFile('received.txt')[0];
-            if (!receiver) {
-                console.log('Tidak ada alamat penerima di received.txt');
-                return;
-            }
-            console.log(`Address tujuan dari file: ${receiver}`);
-        } else if (sourceChoice === '2') {
-            receiver = readline.question('Masukkan address tujuan: ');
-            if (!ethers.isAddress(receiver)) {
-                console.log('Address tidak valid!');
-                return;
-            }
-            console.log(`Address tujuan manual: ${receiver}`);
-        } else {
-            console.log('Pilihan tidak valid');
-            return;
-        }
-        
-        for (const pk of privateKeys) {
-            try {
-                const wallet = utils.createWallet(pk, network.rpc);
-                console.log(`Mengirim ${amount} dari ${wallet.address} ke ${receiver}...`);
-                const tx = await utils.sendNative(wallet, receiver, amount);
-                await utils.sendWithRetry(wallet, tx);
-                console.log(`Berhasil mengirim dari ${wallet.address}`);
-            } catch (error) {
-                console.error(`Gagal mengirim dari ${pk.substring(0, 6)}...:`, error.message);
-            }
-        }
-    } 
-    else if (mode === '3') {
-        console.log('\nPilih sumber address tujuan:');
-        console.log('1. Dari file received.txt');
-        console.log('2. Input manual');
-        const sourceChoice = readline.question('Masukkan nomor pilihan: ');
-        
-        let receiver;
-        if (sourceChoice === '1') {
-            receiver = utils.readFile('received.txt')[0];
-            if (!receiver) {
-                console.log('Tidak ada alamat penerima di received.txt');
-                return;
-            }
-            console.log(`Address tujuan dari file: ${receiver}`);
-        } else if (sourceChoice === '2') {
-            receiver = readline.question('Masukkan address tujuan: ');
-            if (!ethers.isAddress(receiver)) {
-                console.log('Address tidak valid!');
-                return;
-            }
-            console.log(`Address tujuan manual: ${receiver}`);
-        } else {
-            console.log('Pilihan tidak valid');
-            return;
-        }
-        
-        console.log('\nPilih metode split:');
-        console.log('1. Rata-rata (sama untuk semua akun)');
-        console.log('2. Custom (sesuai split.txt)');
-        const splitMode = readline.question('Masukkan nomor metode: ');
-        
-        if (splitMode === '1') {
-            for (const pk of privateKeys) {
-                try {
-                    const wallet = utils.createWallet(pk, network.rpc);
-                    const balance = await utils.getNativeBalance(wallet);
-                    const amountToSend = (parseFloat(balance) - 0.001).toString(); // Sisakan untuk gas
-                    
-                    console.log(`Mengirim ${amountToSend} dari ${wallet.address} ke ${receiver}...`);
-                    const tx = await utils.sendNative(wallet, receiver, amountToSend);
-                    await utils.sendWithRetry(wallet, tx);
-                    console.log(`Berhasil mengirim dari ${wallet.address}`);
-                } catch (error) {
-                    console.error(`Gagal mengirim dari ${pk.substring(0, 6)}...:`, error.message);
-                }
-            }
-        } 
-        else if (splitMode === '2') {
-            const splitAmounts = utils.readFile('split.txt');
-            if (splitAmounts.length !== privateKeys.length) {
-                console.log('Jumlah baris di split.txt harus sama dengan privatekey.txt');
-                return;
-            }
-            
-            for (let i = 0; i < privateKeys.length; i++) {
-                try {
-                    const wallet = utils.createWallet(privateKeys[i], network.rpc);
-                    const amountToSend = splitAmounts[i];
-                    
-                    console.log(`Mengirim ${amountToSend} dari ${wallet.address} ke ${receiver}...`);
-                    const tx = await utils.sendNative(wallet, receiver, amountToSend);
-                    await utils.sendWithRetry(wallet, tx);
-                    console.log(`Berhasil mengirim dari ${wallet.address}`);
-                } catch (error) {
-                    console.error(`Gagal mengirim dari ${privateKeys[i].substring(0, 6)}...:`, error.message);
-                }
-            }
-        }
+    if (mode === 1) {
+        await oneToManyNative(network, wallets, provider, totalAmount);
+    } else if (mode === 2) {
+        await manyToOneNative(network, wallets, provider, totalAmount);
+    } else {
+        console.log('Invalid mode');
     }
 }
 
-async function sendToken(network) {
-    const privateKeys = utils.readFile('privatekey.txt');
-    if (privateKeys.length === 0) {
-        console.log('Tidak ada private key di privatekey.txt');
-        return;
+async function handleTokenTransaction(network, wallets, provider) {
+    console.log('\nSend ERC20/BEP20 Token');
+    const tokenAddress = readline.question('Enter token contract address: ');
+    const totalAmount = readline.questionFloat('Enter total amount to send: ');
+    const decimals = await getTokenDecimals(tokenAddress, provider);
+
+    console.log('\nSend Mode:');
+    console.log('1. From 1 address to many addresses (address.txt)');
+    console.log('2. From many addresses (privatekey.txt) to 1 address');
+    const mode = readline.questionInt('Enter mode: ');
+
+    if (mode === 1) {
+        await oneToManyToken(network, wallets, provider, tokenAddress, totalAmount, decimals);
+    } else if (mode === 2) {
+        await manyToOneToken(network, wallets, provider, tokenAddress, totalAmount, decimals);
+    } else {
+        console.log('Invalid mode');
+    }
+}
+
+async function oneToManyNative(network, wallets, provider, totalAmount) {
+    const addresses = fs.readFileSync('address.txt', 'utf8')
+        .split('\n')
+        .filter(addr => addr.trim() !== '');
+
+    console.log('\nSelect Sender Wallet:');
+    wallets.forEach((wallet, i) => {
+        console.log(`${i + 1}. ${wallet.address}`);
+    });
+    const senderIndex = readline.questionInt('Enter wallet number: ') - 1;
+    const senderWallet = wallets[senderIndex];
+
+    console.log('\nSplit Option:');
+    console.log('1. Equal split');
+    console.log('2. Custom split');
+    const splitOption = readline.questionInt('Enter option: ');
+
+    let amounts;
+    if (splitOption === 1) {
+        const amountPerAddress = totalAmount / addresses.length;
+        amounts = addresses.map(() => amountPerAddress);
+    } else {
+        console.log('Enter amounts separated by commas:');
+        const input = readline.question().split(',').map(n => parseFloat(n.trim()));
+        if (input.length !== addresses.length) {
+            console.log('Amount count must match address count');
+            return;
+        }
+        amounts = input;
     }
 
-    const tokenAddress = readline.question('Masukkan Smart Contract token: ');
-    const amount = readline.question('Masukkan jumlah token: ');
+    const concurrency = readline.questionInt('Enter concurrency level (default 5): ') || 5;
+    const retry = readline.keyInYN('Enable retry on failure?');
+
+    console.log('\nSending transactions...');
+    const results = [];
+    for (let i = 0; i < addresses.length; i += concurrency) {
+        const batch = addresses.slice(i, i + concurrency);
+        const batchAmounts = amounts.slice(i, i + concurrency);
+        const promises = batch.map((addr, j) => 
+            sendNativeTransaction(senderWallet, addr, batchAmounts[j], provider, retry)
+                .catch(e => `Failed: ${e.message}`)
+        );
+        const batchResults = await Promise.all(promises);
+        results.push(...batchResults);
+    }
+
+    console.log('\nTransaction Results:');
+    results.forEach((hash, i) => {
+        console.log(`${i + 1}. ${addresses[i]}: ${hash}`);
+    });
+}
+
+async function manyToOneNative(network, wallets, provider, totalAmount) {
+    const recipient = readline.question('Enter recipient address: ');
     
-    const sampleWallet = utils.createWallet(privateKeys[0], network.rpc);
-    const tokenContract = utils.createTokenContract(tokenAddress, sampleWallet);
-    const decimals = await tokenContract.decimals();
+    console.log('\nSplit Option:');
+    console.log('1. Equal split');
+    console.log('2. Custom split');
+    const splitOption = readline.questionInt('Enter option: ');
 
-    console.log('\nPilih mode pengiriman:');
-    console.log('1. Satu akun ke banyak alamat (singleaddress.txt)');
-    console.log('2. Banyak akun ke satu alamat');
-    console.log('3. Kirim semua saldo (split otomatis)');
-    const mode = readline.question('Masukkan nomor mode: ');
-
-    if (mode === '1') {
-        const addresses = utils.readFile('singleaddress.txt'); // DIUBAH DI SINI
-        if (addresses.length === 0) {
-            console.log('Tidak ada alamat di singleaddress.txt');
+    let amounts;
+    if (splitOption === 1) {
+        const amountPerWallet = totalAmount / wallets.length;
+        amounts = wallets.map(() => amountPerWallet);
+    } else {
+        console.log('Enter amounts separated by commas:');
+        const input = readline.question().split(',').map(n => parseFloat(n.trim()));
+        if (input.length !== wallets.length) {
+            console.log('Amount count must match wallet count');
             return;
         }
-        
-        const wallet = utils.createWallet(privateKeys[0], network.rpc);
-        const contract = utils.createTokenContract(tokenAddress, wallet);
-        for (const addr of addresses) {
-            try {
-                console.log(`Mengirim ${amount} token ke ${addr}...`);
-                const tx = await utils.sendToken(contract, addr, amount, decimals);
-                await utils.sendWithRetry(wallet, tx);
-                console.log(`Berhasil mengirim ke ${addr}`);
-            } catch (error) {
-                console.error(`Gagal mengirim ke ${addr}:`, error.message);
-            }
-        }
-    } 
-    else if (mode === '2') {
-        console.log('\nPilih sumber address tujuan:');
-        console.log('1. Dari file received.txt');
-        console.log('2. Input manual');
-        const sourceChoice = readline.question('Masukkan nomor pilihan: ');
-        
-        let receiver;
-        if (sourceChoice === '1') {
-            receiver = utils.readFile('received.txt')[0];
-            if (!receiver) {
-                console.log('Tidak ada alamat penerima di received.txt');
-                return;
-            }
-            console.log(`Address tujuan dari file: ${receiver}`);
-        } else if (sourceChoice === '2') {
-            receiver = readline.question('Masukkan address tujuan: ');
-            if (!ethers.isAddress(receiver)) {
-                console.log('Address tidak valid!');
-                return;
-            }
-            console.log(`Address tujuan manual: ${receiver}`);
-        } else {
-            console.log('Pilihan tidak valid');
-            return;
-        }
-        
-        for (const pk of privateKeys) {
-            try {
-                const wallet = utils.createWallet(pk, network.rpc);
-                const contract = utils.createTokenContract(tokenAddress, wallet);
-                
-                console.log(`Mengirim ${amount} token dari ${wallet.address} ke ${receiver}...`);
-                const tx = await utils.sendToken(contract, receiver, amount, decimals);
-                await utils.sendWithRetry(wallet, tx);
-                console.log(`Berhasil mengirim dari ${wallet.address}`);
-            } catch (error) {
-                console.error(`Gagal mengirim dari ${pk.substring(0, 6)}...:`, error.message);
-            }
-        }
-    } 
-    else if (mode === '3') {
-        console.log('\nPilih sumber address tujuan:');
-        console.log('1. Dari file received.txt');
-        console.log('2. Input manual');
-        const sourceChoice = readline.question('Masukkan nomor pilihan: ');
-        
-        let receiver;
-        if (sourceChoice === '1') {
-            receiver = utils.readFile('received.txt')[0];
-            if (!receiver) {
-                console.log('Tidak ada alamat penerima di received.txt');
-                return;
-            }
-            console.log(`Address tujuan dari file: ${receiver}`);
-        } else if (sourceChoice === '2') {
-            receiver = readline.question('Masukkan address tujuan: ');
-            if (!ethers.isAddress(receiver)) {
-                console.log('Address tidak valid!');
-                return;
-            }
-            console.log(`Address tujuan manual: ${receiver}`);
-        } else {
-            console.log('Pilihan tidak valid');
-            return;
-        }
-        
-        console.log('\nPilih metode split:');
-        console.log('1. Rata-rata (sama untuk semua akun)');
-        console.log('2. Custom (sesuai split.txt)');
-        const splitMode = readline.question('Masukkan nomor metode: ');
-        
-        if (splitMode === '1') {
-            for (const pk of privateKeys) {
-                try {
-                    const wallet = utils.createWallet(pk, network.rpc);
-                    const contract = utils.createTokenContract(tokenAddress, wallet);
-                    const balance = await utils.getTokenBalance(wallet, contract);
-                    const amountToSend = ethers.formatUnits(balance, decimals);
-                    
-                    console.log(`Mengirim ${amountToSend} token dari ${wallet.address} ke ${receiver}...`);
-                    const tx = await utils.sendToken(contract, receiver, amountToSend, decimals);
-                    await utils.sendWithRetry(wallet, tx);
-                    console.log(`Berhasil mengirim dari ${wallet.address}`);
-                } catch (error) {
-                    console.error(`Gagal mengirim dari ${pk.substring(0, 6)}...:`, error.message);
-                }
-            }
-        } 
-        else if (splitMode === '2') {
-            const splitAmounts = utils.readFile('split.txt');
-            if (splitAmounts.length !== privateKeys.length) {
-                console.log('Jumlah baris di split.txt harus sama dengan privatekey.txt');
-                return;
-            }
-            
-            for (let i = 0; i < privateKeys.length; i++) {
-                try {
-                    const wallet = utils.createWallet(privateKeys[i], network.rpc);
-                    const contract = utils.createTokenContract(tokenAddress, wallet);
-                    const amountToSend = splitAmounts[i];
-                    
-                    console.log(`Mengirim ${amountToSend} token dari ${wallet.address} ke ${receiver}...`);
-                    const tx = await utils.sendToken(contract, receiver, amountToSend, decimals);
-                    await utils.sendWithRetry(wallet, tx);
-                    console.log(`Berhasil mengirim dari ${wallet.address}`);
-                } catch (error) {
-                    console.error(`Gagal mengirim dari ${privateKeys[i].substring(0, 6)}...:`, error.message);
-                }
-            }
-        }
+        amounts = input;
     }
+
+    const concurrency = readline.questionInt('Enter concurrency level (default 5): ') || 5;
+    const retry = readline.keyInYN('Enable retry on failure?');
+
+    console.log('\nSending transactions...');
+    const results = [];
+    for (let i = 0; i < wallets.length; i += concurrency) {
+        const batch = wallets.slice(i, i + concurrency);
+        const batchAmounts = amounts.slice(i, i + concurrency);
+        const promises = batch.map((wallet, j) => 
+            sendNativeTransaction(wallet, recipient, batchAmounts[j], provider, retry)
+                .catch(e => `Failed: ${e.message}`)
+        );
+        const batchResults = await Promise.all(promises);
+        results.push(...batchResults);
+    }
+
+    console.log('\nTransaction Results:');
+    results.forEach((hash, i) => {
+        console.log(`${i + 1}. ${wallets[i].address}: ${hash}`);
+    });
+}
+
+async function oneToManyToken(network, wallets, provider, tokenAddress, totalAmount, decimals) {
+    const addresses = fs.readFileSync('address.txt', 'utf8')
+        .split('\n')
+        .filter(addr => addr.trim() !== '');
+
+    console.log('\nSelect Sender Wallet:');
+    wallets.forEach((wallet, i) => {
+        console.log(`${i + 1}. ${wallet.address}`);
+    });
+    const senderIndex = readline.questionInt('Enter wallet number: ') - 1;
+    const senderWallet = wallets[senderIndex];
+
+    console.log('\nSplit Option:');
+    console.log('1. Equal split');
+    console.log('2. Custom split');
+    const splitOption = readline.questionInt('Enter option: ');
+
+    let amounts;
+    if (splitOption === 1) {
+        const amountPerAddress = totalAmount / addresses.length;
+        amounts = addresses.map(() => amountPerAddress);
+    } else {
+        console.log('Enter amounts separated by commas:');
+        const input = readline.question().split(',').map(n => parseFloat(n.trim()));
+        if (input.length !== addresses.length) {
+            console.log('Amount count must match address count');
+            return;
+        }
+        amounts = input;
+    }
+
+    const concurrency = readline.questionInt('Enter concurrency level (default 5): ') || 5;
+    const retry = readline.keyInYN('Enable retry on failure?');
+
+    console.log('\nSending transactions...');
+    const results = [];
+    for (let i = 0; i < addresses.length; i += concurrency) {
+        const batch = addresses.slice(i, i + concurrency);
+        const batchAmounts = amounts.slice(i, i + concurrency);
+        const promises = batch.map((addr, j) => 
+            sendTokenTransaction(senderWallet, tokenAddress, addr, batchAmounts[j], decimals, provider, retry)
+                .catch(e => `Failed: ${e.message}`)
+        );
+        const batchResults = await Promise.all(promises);
+        results.push(...batchResults);
+    }
+
+    console.log('\nTransaction Results:');
+    results.forEach((hash, i) => {
+        console.log(`${i + 1}. ${addresses[i]}: ${hash}`);
+    });
+}
+
+async function manyToOneToken(network, wallets, provider, tokenAddress, totalAmount, decimals) {
+    const recipient = readline.question('Enter recipient address: ');
+    
+    console.log('\nSplit Option:');
+    console.log('1. Equal split');
+    console.log('2. Custom split');
+    const splitOption = readline.questionInt('Enter option: ');
+
+    let amounts;
+    if (splitOption === 1) {
+        const amountPerWallet = totalAmount / wallets.length;
+        amounts = wallets.map(() => amountPerWallet);
+    } else {
+        console.log('Enter amounts separated by commas:');
+        const input = readline.question().split(',').map(n => parseFloat(n.trim()));
+        if (input.length !== wallets.length) {
+            console.log('Amount count must match wallet count');
+            return;
+        }
+        amounts = input;
+    }
+
+    const concurrency = readline.questionInt('Enter concurrency level (default 5): ') || 5;
+    const retry = readline.keyInYN('Enable retry on failure?');
+
+    console.log('\nSending transactions...');
+    const results = [];
+    for (let i = 0; i < wallets.length; i += concurrency) {
+        const batch = wallets.slice(i, i + concurrency);
+        const batchAmounts = amounts.slice(i, i + concurrency);
+        const promises = batch.map((wallet, j) => 
+            sendTokenTransaction(wallet, tokenAddress, recipient, batchAmounts[j], decimals, provider, retry)
+                .catch(e => `Failed: ${e.message}`)
+        );
+        const batchResults = await Promise.all(promises);
+        results.push(...batchResults);
+    }
+
+    console.log('\nTransaction Results:');
+    results.forEach((hash, i) => {
+        console.log(`${i + 1}. ${wallets[i].address}: ${hash}`);
+    });
 }
 
 main().catch(console.error);
