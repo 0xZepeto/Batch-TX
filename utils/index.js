@@ -64,11 +64,29 @@ async function getTokenDecimals(tokenAddress, provider) {
     return await contract.decimals();
 }
 
+// Spinner animation functions
+function startSpinner(message) {
+    const spinner = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+    let i = 0;
+    const interval = setInterval(() => {
+        process.stdout.write(`\r${message} ${spinner[i]}`);
+        i = (i + 1) % spinner.length;
+    }, 100);
+    return interval;
+}
+
+function stopSpinner(interval) {
+    clearInterval(interval);
+    process.stdout.write('\r'); // clear the spinner line
+}
+
 module.exports = {
     getNetworks,
     getProvider,
     getWallet,
     sendNativeTransaction,
     sendTokenTransaction,
-    getTokenDecimals
+    getTokenDecimals,
+    startSpinner,
+    stopSpinner
 };
