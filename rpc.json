@@ -1,32 +1,28 @@
 {
   "networks": [
     {
-      "key": "base",
-      "name": "Base (Mainnet)",
-      "rpc": "https://mainnet.base.org",
+      "name": "BASE MAINNET",
+      "rpcUrl": "https://mainnet.base.org",
       "chainId": 8453,
-      "explorer": "https://base.blockscout.com/"
+      "symbol": "ETH"
     },
     {
-      "key": "ethereum",
-      "name": "Ethereum Mainnet",
-      "rpc": "https://eth.drpc.org",
+      "name": "ETHEREUM MAINNET",
+      "rpcUrl": "https://ethereum-public.nodies.app",
       "chainId": 1,
-      "explorer": "https://etherscan.io/"
+      "symbol": "ETH"
     },
     {
-      "key": "bsc",
-      "name": "BSC Mainnet (BNB Smart Chain)",
-      "rpc": "https://bsc-dataseed.binance.org/",
+      "name": "BSC MAINNET",
+      "rpcUrl": "https://bsc-dataseed.binance.org/",
       "chainId": 56,
-      "explorer": "https://bscscan.com/"
+      "symbol": "BNB"
     },
     {
-      "key": "ape",
-      "name": "ApeChain (APE)",
-      "rpc": "https://apechain.calderachain.xyz/http",
-      "chainId": 33139,
-      "explorer": "https://apescan.io/"
+      "name": "APECHAIN",
+      "rpcUrl": "https://apechain-mainnet.blastapi.io/43114/ext/bc/C/rpc",
+      "chainId": 43114,
+      "symbol": "APE"
     }
   ]
 }
