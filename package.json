@@ -1,15 +1,16 @@
 {
   "name": "batch-tx",
   "version": "1.0.0",
-  "description": "Batch Transaction Sender",
+  "description": "Batch Token Sender",
   "main": "main.js",
   "scripts": {
     "start": "node main.js"
   },
   "dependencies": {
+    "chalk": "^5.3.0",
     "ethers": "^6.15.0",
-    "chalk": "^4.1.2",
-    "inquirer": "^8.2.5",
-    "ora": "^5.4.1"
-  }
+    "inquirer": "^9.2.23",
+    "ora": "^8.0.1"
+  },
+  "type": "module"
 }
