@@ -3,24 +3,44 @@ const inquirer = require('inquirer');
 const ora = require('ora');
 const ethers = require('ethers');
 
-// Header animasi yang lebih rapi
+// ANSI Art Zepeto Bot yang simetris
 const showHeader = () => {
   console.clear();
-  console.log(chalk.cyan(`
-╔══════════════════════════════════════════════════════════════╗
-║                                                              ║
-║   ${chalk.green('██████╗ ███████╗████████╗██████╗  ██████╗ ████████╗')}   ║
-║   ${chalk.green('██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔═══██╗╚══██╔══╝')}   ║
-║   ${chalk.green('██████╔╝█████╗     ██║   ██████╔╝██║   ██║   ██║')}      ║
-║   ${chalk.green('██╔══██╗██╔══╝     ██║   ██╔══██╗██║   ██║   ██║')}      ║
-║   ${chalk.green('██████╔╝███████╗   ██║   ██║  ██║╚██████╔╝   ██║')}      ║
-║   ${chalk.green('╚═════╝ ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝    ╚═╝')}      ║
-║                                                              ║
-║                    ${chalk.yellow('Batch Transaction Sender')}                    ║
-║                                                              ║
-╚══════════════════════════════════════════════════════════════╝
-`));
-  console.log(chalk.gray('='.repeat(60)));
+  
+  const zepetoArt = [
+    "████████╗███████╗██████╗ ███╗   ███╗██╗███╗   ██╗ ██████╗ ",
+    "╚══██╔══╝██╔════╝██╔══██╗████╗ ████║██║████╗  ██║██╔═══██╗",
+    "   ██║   █████╗  ██████╔╝██╔████╔██║██║██╔██╗ ██║██║   ██║",
+    "   ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║██║██║╚██╗██║██║   ██║",
+    "   ██║   ███████╗██║  ██║██║ ╚═╝ ██║██║██║ ╚████║╚██████╔╝",
+    "   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝ ",
+    "                                                            ",
+    "███████╗████████╗██╗   ██╗██╗     ███████╗                 ",
+    "██╔════╝╚══██╔══╝╚██╗ ██╔╝██║     ██╔════╝                 ",
+    "███████╗   ██║    ╚████╔╝ ██║     █████╗                   ",
+    "╚════██║   ██║     ╚██╔╝  ██║     ██╔══╝                   ",
+    "███████║   ██║      ██║   ███████╗███████╗                 ",
+    "╚══════╝   ╚═╝      ╚═╝   ╚══════╝╚══════╝                 "
+  ];
+
+  const maxWidth = Math.max(...zepetoArt.map(line => line.length));
+  const border = "═".repeat(maxWidth + 4);
+  const padding = " ".repeat(Math.floor((maxWidth - 28) / 2)); // 28 = panjang "Batch Transaction Sender"
+
+  let header = chalk.cyan(`╔${border}╗\n`);
+  
+  zepetoArt.forEach(line => {
+    const paddedLine = line.padEnd(maxWidth, ' ');
+    header += chalk.cyan(`║ ${chalk.green(paddedLine)} ║\n`);
+  });
+  
+  header += chalk.cyan(`║ ${" ".repeat(maxWidth)} ║\n`);
+  header += chalk.cyan(`║ ${padding}${chalk.yellow.bold("Batch Transaction Sender")}${padding} ║\n`);
+  header += chalk.cyan(`║ ${" ".repeat(maxWidth)} ║\n`);
+  header += chalk.cyan(`╚${border}╝\n`);
+  header += chalk.gray('='.repeat(maxWidth + 6));
+  
+  console.log(header);
 };
 
 // Pilihan jaringan dengan tampilan lebih menarik
@@ -174,7 +194,7 @@ const inputTokenContract = async () => {
 // Konfirmasi transaksi dengan tampilan tabel
 const confirmTransaction = async (details) => {
   console.log(chalk.yellow.bold('\n📋 Detail Transaksi:'));
-  console.log(chalk.gray('─'.repeat(50)));
+  console.log(chalk.gray('─'.repeat(60)));
   console.log(`${chalk.cyan.bold('Jaringan:')}         ${details.network}`);
   console.log(`${chalk.cyan.bold('Jenis Token:')}      ${details.tokenType}`);
   console.log(`${chalk.cyan.bold('Mode:')}             ${details.mode}`);
@@ -186,7 +206,7 @@ const confirmTransaction = async (details) => {
   console.log(`${chalk.cyan.bold('Total Pengirim:')}    ${details.totalSenders}`);
   console.log(`${chalk.cyan.bold('Total Penerima:')}    ${details.totalReceivers}`);
   console.log(`${chalk.cyan.bold('Jumlah per Tx:')}     ${details.amountPerTx}`);
-  console.log(chalk.gray('─'.repeat(50)));
+  console.log(chalk.gray('─'.repeat(60)));
   
   const { confirm } = await inquirer.prompt([
     {
@@ -245,6 +265,62 @@ const showWarning = (message) => {
   console.log(chalk.yellow.bold('\n⚠️  ' + message));
 };
 
+// Menampilkan tabel transaksi
+const showTransactionTable = (transactions) => {
+  console.log(chalk.blue.bold('\n📊 Ringkasan Transaksi:'));
+  console.log(chalk.gray('─'.repeat(80)));
+  
+  const headers = ['No', 'Dari', 'Ke', 'Jumlah', 'Status', 'TX Hash'];
+  const columnWidths = [5, 20, 20, 15, 10, 30];
+  
+  // Print header
+  let headerLine = '';
+  headers.forEach((header, i) => {
+    headerLine += chalk.cyan.bold(header.padEnd(columnWidths[i]));
+  });
+  console.log(headerLine);
+  console.log(chalk.gray('─'.repeat(80)));
+  
+  // Print rows
+  transactions.forEach((tx, index) => {
+    const row = [
+      (index + 1).toString().padEnd(columnWidths[0]),
+      (tx.from ? tx.from.substring(0, 6) + '...' + tx.from.substring(tx.from.length - 4) : '-').padEnd(columnWidths[1]),
+      (tx.to ? tx.to.substring(0, 6) + '...' + tx.to.substring(tx.to.length - 4) : '-').padEnd(columnWidths[2]),
+      tx.amount.padEnd(columnWidths[3]),
+      tx.status === 'success' ? chalk.green('✓ Sukses') : chalk.red('✗ Gagal'),
+      (tx.hash ? tx.hash.substring(0, 10) + '...' : '-').padEnd(columnWidths[5])
+    ];
+    
+    console.log(row.join(''));
+  });
+  
+  console.log(chalk.gray('─'.repeat(80)));
+};
+
+// Menampilkan progress bar
+const showProgressBar = (current, total, size = 30) => {
+  const percent = Math.floor((current / total) * 100);
+  const filled = Math.floor(size * (current / total));
+  const bar = '█'.repeat(filled) + '░'.repeat(size - filled);
+  
+  process.stdout.write(`\r${chalk.blue('[')}${chalk.green(bar)}${chalk.blue(']')} ${chalk.yellow(percent.toString().padStart(3))}% ${chalk.gray(`(${current}/${total}`)})`);
+  
+  if (current === total) {
+    process.stdout.write('\n');
+  }
+};
+
+// Menampilkan animasi loading kustom
+const showCustomLoader = (message) => {
+  const frames = ['⠁', '⠂', '⠄', '⡀', '⢀', '⠠', '⠐', '⠈'];
+  let i = 0;
+  
+  return setInterval(() => {
+    process.stdout.write(`\r${chalk.blue(frames[i++ % frames.length])} ${chalk.gray(message)}`);
+  }, 100);
+};
+
 module.exports = {
   showHeader,
   selectNetwork,
@@ -258,5 +334,8 @@ module.exports = {
   showSuccess,
   showError,
   showInfo,
-  showWarning
+  showWarning,
+  showTransactionTable,
+  showProgressBar,
+  showCustomLoader
 };
