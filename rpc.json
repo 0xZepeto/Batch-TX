@@ -10,7 +10,7 @@
     {
       "key": "ethereum",
       "name": "Ethereum Mainnet",
-      "rpc": "https://mainnet.infura.io/v3/YOUR_INFURA_KEY",
+      "rpc": "https://eth.drpc.org",
       "chainId": 1,
       "explorer": "https://etherscan.io/"
     },
