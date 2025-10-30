@@ -1,16 +1,14 @@
 {
-  "name": "Batch-TX",
+  "name": "batch-tx",
   "version": "1.0.0",
-  "description": "Send native / ERC20 / BEP20 and NFT",
+  "description": "Batch Transaction Tool",
   "main": "main.js",
   "scripts": {
     "start": "node main.js",
-    "send-nft": "node SendNFT.js"
+    "sendnft": "node SendNFT.js"
   },
   "dependencies": {
-    "enquirer": "^2.4.1",
     "ethers": "^6.15.0",
-    "fs-extra": "^11.1.1",
-    "p-limit": "^4.0.0"
+    "readline-sync": "^1.4.10"
   }
 }
