@@ -1,1 +1,32 @@
-
+{
+  "networks": [
+    {
+      "key": "base",
+      "name": "Base (Mainnet)",
+      "rpc": "https://mainnet.base.org",
+      "chainId": 8453,
+      "explorer": "https://base.blockscout.com/"
+    },
+    {
+      "key": "ethereum",
+      "name": "Ethereum Mainnet",
+      "rpc": "https://mainnet.infura.io/v3/YOUR_INFURA_KEY",
+      "chainId": 1,
+      "explorer": "https://etherscan.io/"
+    },
+    {
+      "key": "bsc",
+      "name": "BSC Mainnet (BNB Smart Chain)",
+      "rpc": "https://bsc-dataseed.binance.org/",
+      "chainId": 56,
+      "explorer": "https://bscscan.com/"
+    },
+    {
+      "key": "ape",
+      "name": "ApeChain (APE)",
+      "rpc": "https://apechain.calderachain.xyz/http",
+      "chainId": 33139,
+      "explorer": "https://apescan.io/"
+    }
+  ]
+}
