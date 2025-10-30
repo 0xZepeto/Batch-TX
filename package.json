@@ -1,1 +1,16 @@
-
+{
+  "name": "Batch-TX",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Send native / ERC20 / BEP20 and NFT across RPCs from rpc.json",
+  "main": "main.js",
+  "scripts": {
+    "start": "node main.js",
+    "send-nft": "node SendNFT.js"
+  },
+  "dependencies": {
+    "ethers": "^6.15.0",
+    "enquirer": "^2.8.0",
+    "p-limit": "^4.0.0"
+  }
+}
