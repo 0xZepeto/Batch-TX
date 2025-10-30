@@ -1,12 +1,7 @@
 {
   "name": "batch-tx",
   "version": "1.0.0",
-  "description": "Batch Transaction Tool",
   "main": "main.js",
-  "scripts": {
-    "start": "node main.js",
-    "sendnft": "node SendNFT.js"
-  },
   "dependencies": {
     "ethers": "^6.15.0",
     "readline-sync": "^1.4.10"
