@@ -1,5 +1,5 @@
 const ethers = require('ethers');
-const readline = require('readline-sync');
+const readline = require('readline');
 const fs = require('fs');
 const {
     getNetworks,
@@ -7,10 +7,61 @@ const {
     getWallet,
     sendNativeTransaction,
     sendTokenTransaction,
-    getTokenDecimals
+    getTokenDecimals,
+    startSpinner,
+    stopSpinner
 } = require('./utils');
 
+// Create readline interface for keypress handling
+const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+});
+
+// Function to handle menu selection with arrow keys
+function showMenu(options, message) {
+    return new Promise((resolve) => {
+        let selectedIndex = 0;
+        
+        // Display initial menu
+        displayMenu();
+        
+        // Handle keypress events
+        readline.emitKeypressEvents(process.stdin);
+        process.stdin.setRawMode(true);
+        process.stdin.on('keypress', (str, key) => {
+            if (key.name === 'up') {
+                selectedIndex = (selectedIndex - 1 + options.length) % options.length;
+                displayMenu();
+            } else if (key.name === 'down') {
+                selectedIndex = (selectedIndex + 1) % options.length;
+                displayMenu();
+            } else if (key.name === 'return') {
+                process.stdin.setRawMode(false);
+                process.stdin.removeAllListeners('keypress');
+                resolve(selectedIndex);
+            } else if (key.name === 'escape') {
+                process.exit();
+            }
+        });
+        
+        function displayMenu() {
+            console.clear();
+            console.log(message);
+            options.forEach((option, index) => {
+                if (index === selectedIndex) {
+                    console.log(`> ${option}`);
+                } else {
+                    console.log(`  ${option}`);
+                }
+            });
+            console.log('\nUse arrow keys to navigate, Enter to select, Esc to exit');
+        }
+    });
+}
+
 async function main() {
+    console.clear();
     console.log('=== BATCH TRANSACTION SENDER ===\n');
 
     // Load networks
@@ -20,12 +71,9 @@ async function main() {
         return;
     }
 
-    // Network selection
-    console.log('Select Network:');
-    networks.forEach((net, i) => {
-        console.log(`${i + 1}. ${net.name} (${net.symbol})`);
-    });
-    const networkChoice = readline.questionInt('Enter network number: ') - 1;
+    // Network selection with arrow keys
+    const networkOptions = networks.map(net => `${net.name} (${net.symbol || 'ETH'})`);
+    const networkChoice = await showMenu(networkOptions, 'Select Network:');
     const selectedNetwork = networks[networkChoice];
     const provider = getProvider(selectedNetwork.rpcUrl);
 
@@ -35,57 +83,72 @@ async function main() {
         .filter(key => key.trim() !== '');
     const wallets = privateKeys.map(pk => getWallet(pk, provider));
 
-    // Transaction type selection
-    console.log('\nSelect Transaction Type:');
-    console.log('1. Send Native Token');
-    console.log('2. Send ERC20/BEP20 Token');
-    const txType = readline.questionInt('Enter choice: ');
+    // Transaction type selection with arrow keys
+    const txTypeChoice = await showMenu(
+        ['Send Native Token', 'Send ERC20/BEP20 Token'], 
+        'Select Transaction Type:'
+    );
 
-    if (txType === 1) {
+    if (txTypeChoice === 0) {
         await handleNativeTransaction(selectedNetwork, wallets, provider);
-    } else if (txType === 2) {
+    } else if (txTypeChoice === 1) {
         await handleTokenTransaction(selectedNetwork, wallets, provider);
-    } else {
-        console.log('Invalid choice');
     }
+    
+    rl.close();
 }
 
 async function handleNativeTransaction(network, wallets, provider) {
-    console.log(`\nSend ${network.symbol} (Native Token)`);
-    const totalAmount = readline.questionFloat('Enter total amount to send: ');
+    console.clear();
+    console.log(`Send ${network.symbol || 'ETH'} (Native Token)\n`);
+    
+    const totalAmount = parseFloat(await question('Enter total amount to send: '));
+    
+    const modeChoice = await showMenu(
+        [
+            'From 1 address to many addresses (address.txt)',
+            'From many addresses (privatekey.txt) to 1 address'
+        ],
+        'Send Mode:'
+    );
 
-    console.log('\nSend Mode:');
-    console.log('1. From 1 address to many addresses (address.txt)');
-    console.log('2. From many addresses (privatekey.txt) to 1 address');
-    const mode = readline.questionInt('Enter mode: ');
-
-    if (mode === 1) {
+    if (modeChoice === 0) {
         await oneToManyNative(network, wallets, provider, totalAmount);
-    } else if (mode === 2) {
+    } else if (modeChoice === 1) {
         await manyToOneNative(network, wallets, provider, totalAmount);
-    } else {
-        console.log('Invalid mode');
     }
 }
 
 async function handleTokenTransaction(network, wallets, provider) {
-    console.log('\nSend ERC20/BEP20 Token');
-    const tokenAddress = readline.question('Enter token contract address: ');
-    const totalAmount = readline.questionFloat('Enter total amount to send: ');
+    console.clear();
+    console.log('Send ERC20/BEP20 Token\n');
+    
+    const tokenAddress = await question('Enter token contract address: ');
+    const totalAmount = parseFloat(await question('Enter total amount to send: '));
+    
+    // Show spinner while fetching token decimals
+    const spinner = startSpinner('Fetching token info');
     const decimals = await getTokenDecimals(tokenAddress, provider);
+    stopSpinner(spinner);
+    
+    const modeChoice = await showMenu(
+        [
+            'From 1 address to many addresses (address.txt)',
+            'From many addresses (privatekey.txt) to 1 address'
+        ],
+        'Send Mode:'
+    );
 
-    console.log('\nSend Mode:');
-    console.log('1. From 1 address to many addresses (address.txt)');
-    console.log('2. From many addresses (privatekey.txt) to 1 address');
-    const mode = readline.questionInt('Enter mode: ');
-
-    if (mode === 1) {
+    if (modeChoice === 0) {
         await oneToManyToken(network, wallets, provider, tokenAddress, totalAmount, decimals);
-    } else if (mode === 2) {
+    } else if (modeChoice === 1) {
         await manyToOneToken(network, wallets, provider, tokenAddress, totalAmount, decimals);
-    } else {
-        console.log('Invalid mode');
     }
+}
+
+// Helper function for questions
+function question(query) {
+    return new Promise(resolve => rl.question(query, resolve));
 }
 
 async function oneToManyNative(network, wallets, provider, totalAmount) {
@@ -93,37 +156,41 @@ async function oneToManyNative(network, wallets, provider, totalAmount) {
         .split('\n')
         .filter(addr => addr.trim() !== '');
 
-    console.log('\nSelect Sender Wallet:');
-    wallets.forEach((wallet, i) => {
-        console.log(`${i + 1}. ${wallet.address}`);
-    });
-    const senderIndex = readline.questionInt('Enter wallet number: ') - 1;
+    console.clear();
+    console.log('Select Sender Wallet:\n');
+    const walletOptions = wallets.map((wallet, i) => `${i + 1}. ${wallet.address}`);
+    const senderIndex = await showMenu(walletOptions, 'Select Sender Wallet:');
     const senderWallet = wallets[senderIndex];
 
-    console.log('\nSplit Option:');
-    console.log('1. Equal split');
-    console.log('2. Custom split');
-    const splitOption = readline.questionInt('Enter option: ');
+    const splitChoice = await showMenu(
+        ['Equal split', 'Custom split'],
+        'Split Option:'
+    );
 
     let amounts;
-    if (splitOption === 1) {
+    if (splitChoice === 0) {
         const amountPerAddress = totalAmount / addresses.length;
         amounts = addresses.map(() => amountPerAddress);
     } else {
+        console.clear();
         console.log('Enter amounts separated by commas:');
-        const input = readline.question().split(',').map(n => parseFloat(n.trim()));
-        if (input.length !== addresses.length) {
+        const input = await question('> ');
+        const inputAmounts = input.split(',').map(n => parseFloat(n.trim()));
+        if (inputAmounts.length !== addresses.length) {
             console.log('Amount count must match address count');
             return;
         }
-        amounts = input;
+        amounts = inputAmounts;
     }
 
-    const concurrency = readline.questionInt('Enter concurrency level (default 5): ') || 5;
-    const retry = readline.keyInYN('Enable retry on failure?');
+    const concurrency = parseInt(await question('Enter concurrency level (default 5): ')) || 5;
+    const retry = await question('Enable retry on failure? (y/n): ').toLowerCase() === 'y';
 
-    console.log('\nSending transactions...');
+    console.clear();
+    console.log('Sending transactions...\n');
+    const spinner = startSpinner('Processing');
     const results = [];
+    
     for (let i = 0; i < addresses.length; i += concurrency) {
         const batch = addresses.slice(i, i + concurrency);
         const batchAmounts = amounts.slice(i, i + concurrency);
@@ -134,7 +201,8 @@ async function oneToManyNative(network, wallets, provider, totalAmount) {
         const batchResults = await Promise.all(promises);
         results.push(...batchResults);
     }
-
+    
+    stopSpinner(spinner);
     console.log('\nTransaction Results:');
     results.forEach((hash, i) => {
         console.log(`${i + 1}. ${addresses[i]}: ${hash}`);
@@ -142,32 +210,37 @@ async function oneToManyNative(network, wallets, provider, totalAmount) {
 }
 
 async function manyToOneNative(network, wallets, provider, totalAmount) {
-    const recipient = readline.question('Enter recipient address: ');
+    const recipient = await question('Enter recipient address: ');
     
-    console.log('\nSplit Option:');
-    console.log('1. Equal split');
-    console.log('2. Custom split');
-    const splitOption = readline.questionInt('Enter option: ');
+    const splitChoice = await showMenu(
+        ['Equal split', 'Custom split'],
+        'Split Option:'
+    );
 
     let amounts;
-    if (splitOption === 1) {
+    if (splitChoice === 0) {
         const amountPerWallet = totalAmount / wallets.length;
         amounts = wallets.map(() => amountPerWallet);
     } else {
+        console.clear();
         console.log('Enter amounts separated by commas:');
-        const input = readline.question().split(',').map(n => parseFloat(n.trim()));
-        if (input.length !== wallets.length) {
+        const input = await question('> ');
+        const inputAmounts = input.split(',').map(n => parseFloat(n.trim()));
+        if (inputAmounts.length !== wallets.length) {
             console.log('Amount count must match wallet count');
             return;
         }
-        amounts = input;
+        amounts = inputAmounts;
     }
 
-    const concurrency = readline.questionInt('Enter concurrency level (default 5): ') || 5;
-    const retry = readline.keyInYN('Enable retry on failure?');
+    const concurrency = parseInt(await question('Enter concurrency level (default 5): ')) || 5;
+    const retry = await question('Enable retry on failure? (y/n): ').toLowerCase() === 'y';
 
-    console.log('\nSending transactions...');
+    console.clear();
+    console.log('Sending transactions...\n');
+    const spinner = startSpinner('Processing');
     const results = [];
+    
     for (let i = 0; i < wallets.length; i += concurrency) {
         const batch = wallets.slice(i, i + concurrency);
         const batchAmounts = amounts.slice(i, i + concurrency);
@@ -178,7 +251,8 @@ async function manyToOneNative(network, wallets, provider, totalAmount) {
         const batchResults = await Promise.all(promises);
         results.push(...batchResults);
     }
-
+    
+    stopSpinner(spinner);
     console.log('\nTransaction Results:');
     results.forEach((hash, i) => {
         console.log(`${i + 1}. ${wallets[i].address}: ${hash}`);
@@ -190,37 +264,41 @@ async function oneToManyToken(network, wallets, provider, tokenAddress, totalAmo
         .split('\n')
         .filter(addr => addr.trim() !== '');
 
-    console.log('\nSelect Sender Wallet:');
-    wallets.forEach((wallet, i) => {
-        console.log(`${i + 1}. ${wallet.address}`);
-    });
-    const senderIndex = readline.questionInt('Enter wallet number: ') - 1;
+    console.clear();
+    console.log('Select Sender Wallet:\n');
+    const walletOptions = wallets.map((wallet, i) => `${i + 1}. ${wallet.address}`);
+    const senderIndex = await showMenu(walletOptions, 'Select Sender Wallet:');
     const senderWallet = wallets[senderIndex];
 
-    console.log('\nSplit Option:');
-    console.log('1. Equal split');
-    console.log('2. Custom split');
-    const splitOption = readline.questionInt('Enter option: ');
+    const splitChoice = await showMenu(
+        ['Equal split', 'Custom split'],
+        'Split Option:'
+    );
 
     let amounts;
-    if (splitOption === 1) {
+    if (splitChoice === 0) {
         const amountPerAddress = totalAmount / addresses.length;
         amounts = addresses.map(() => amountPerAddress);
     } else {
+        console.clear();
         console.log('Enter amounts separated by commas:');
-        const input = readline.question().split(',').map(n => parseFloat(n.trim()));
-        if (input.length !== addresses.length) {
+        const input = await question('> ');
+        const inputAmounts = input.split(',').map(n => parseFloat(n.trim()));
+        if (inputAmounts.length !== addresses.length) {
             console.log('Amount count must match address count');
             return;
         }
-        amounts = input;
+        amounts = inputAmounts;
     }
 
-    const concurrency = readline.questionInt('Enter concurrency level (default 5): ') || 5;
-    const retry = readline.keyInYN('Enable retry on failure?');
+    const concurrency = parseInt(await question('Enter concurrency level (default 5): ')) || 5;
+    const retry = await question('Enable retry on failure? (y/n): ').toLowerCase() === 'y';
 
-    console.log('\nSending transactions...');
+    console.clear();
+    console.log('Sending transactions...\n');
+    const spinner = startSpinner('Processing');
     const results = [];
+    
     for (let i = 0; i < addresses.length; i += concurrency) {
         const batch = addresses.slice(i, i + concurrency);
         const batchAmounts = amounts.slice(i, i + concurrency);
@@ -231,7 +309,8 @@ async function oneToManyToken(network, wallets, provider, tokenAddress, totalAmo
         const batchResults = await Promise.all(promises);
         results.push(...batchResults);
     }
-
+    
+    stopSpinner(spinner);
     console.log('\nTransaction Results:');
     results.forEach((hash, i) => {
         console.log(`${i + 1}. ${addresses[i]}: ${hash}`);
@@ -239,32 +318,37 @@ async function oneToManyToken(network, wallets, provider, tokenAddress, totalAmo
 }
 
 async function manyToOneToken(network, wallets, provider, tokenAddress, totalAmount, decimals) {
-    const recipient = readline.question('Enter recipient address: ');
+    const recipient = await question('Enter recipient address: ');
     
-    console.log('\nSplit Option:');
-    console.log('1. Equal split');
-    console.log('2. Custom split');
-    const splitOption = readline.questionInt('Enter option: ');
+    const splitChoice = await showMenu(
+        ['Equal split', 'Custom split'],
+        'Split Option:'
+    );
 
     let amounts;
-    if (splitOption === 1) {
+    if (splitChoice === 0) {
         const amountPerWallet = totalAmount / wallets.length;
         amounts = wallets.map(() => amountPerWallet);
     } else {
+        console.clear();
         console.log('Enter amounts separated by commas:');
-        const input = readline.question().split(',').map(n => parseFloat(n.trim()));
-        if (input.length !== wallets.length) {
+        const input = await question('> ');
+        const inputAmounts = input.split(',').map(n => parseFloat(n.trim()));
+        if (inputAmounts.length !== wallets.length) {
             console.log('Amount count must match wallet count');
             return;
         }
-        amounts = input;
+        amounts = inputAmounts;
     }
 
-    const concurrency = readline.questionInt('Enter concurrency level (default 5): ') || 5;
-    const retry = readline.keyInYN('Enable retry on failure?');
+    const concurrency = parseInt(await question('Enter concurrency level (default 5): ')) || 5;
+    const retry = await question('Enable retry on failure? (y/n): ').toLowerCase() === 'y';
 
-    console.log('\nSending transactions...');
+    console.clear();
+    console.log('Sending transactions...\n');
+    const spinner = startSpinner('Processing');
     const results = [];
+    
     for (let i = 0; i < wallets.length; i += concurrency) {
         const batch = wallets.slice(i, i + concurrency);
         const batchAmounts = amounts.slice(i, i + concurrency);
@@ -275,7 +359,8 @@ async function manyToOneToken(network, wallets, provider, tokenAddress, totalAmo
         const batchResults = await Promise.all(promises);
         results.push(...batchResults);
     }
-
+    
+    stopSpinner(spinner);
     console.log('\nTransaction Results:');
     results.forEach((hash, i) => {
         console.log(`${i + 1}. ${wallets[i].address}: ${hash}`);
